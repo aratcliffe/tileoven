@@ -36,6 +36,7 @@
           <a href='#export-svg' title='Export SVG'>SVG</a>
           <% } %>
           <a href='<%= url() %>.xml' title='Export Mapnik XML'>Mapnik XML</a>
+          <a href='<%= url() %>.zip' title='Export Mapnik Archive'>Mapnik Archive</a>
           <a class='divceil drawer' href='#exports'>View exports</a>
         </span>
       </span>

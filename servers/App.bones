@@ -1,6 +1,7 @@
 var fs = require('fs');
 var path = require('path');
 var Step = require('step');
+var archiver = require('archiver');
 var env = process.env.NODE_ENV || 'development';
 
 server = Bones.Server.extend({});
@@ -13,7 +14,8 @@ server.prototype.initialize = function(app) {
         'projectPoll',
         'projectFlush',
         'projectDebug',
-        'projectXML'
+        'projectXML',
+        'projectArchive'
     );
 
     // Process endpoints.
@@ -32,6 +34,7 @@ server.prototype.initialize = function(app) {
 
     // Custom Project sync endpoints.
     this.get('/api/Project/:id.xml', this.projectXML);
+    this.get('/api/Project/:id.zip', this.projectArchive);
     this.get('/api/Project/:id.debug', this.projectDebug);
     this.get('/api/Project/:id/:time(\\d+)', this.projectPoll);
     this.del('/api/Project/:id/:layer', this.projectFlush);
@@ -92,6 +95,65 @@ server.prototype.projectXML = function(req, res, next) {
         },
         error: function(model, resp) { next(resp); }
     });
+};
+
+server.prototype.projectArchive = function(req, res, next) {
+    var settings = Bones.plugin.config,
+        model = new models.Project({ id: req.param('id') }),
+        projectPath = path.resolve(path.join(settings.files, 'project', model.id)),
+        archiveName = model.id + '.zip',
+        archive;
+    
+    model.fetch({
+        success: function(model, resp) {
+            Step(
+                function localizeMML () {
+                    model.localize(model.toJSON(), this);
+                },
+                function createArchive (err) {
+                    if (err) return this(err);
+
+                    res.attachment(archiveName);
+
+                    archive = archiver('zip');
+
+                    archive.on('error', function(err) {
+                        res.status(500).send({error: err.message});
+                    });
+
+                    archive.pipe(res);
+
+                    archive.append(model.xml, {name: 'mapnik.xml'});
+
+                    return fs.readdir(projectPath, this);
+                },
+                function addDirs (err, files) {
+                    if (err) return this(err);
+
+                    files.forEach(function (file) {
+                        var filePath = projectPath + '/' + file;
+                        
+                        if (fs.lstatSync(filePath).isDirectory()) {
+                            archive.directory(filePath, file);
+                        }
+                    });
+
+                    this();
+                },
+                function finalize (err) {
+                    if (err) return this(err);
+
+                    archive.finalize();
+
+                    this();
+                },
+                function (err) {
+                    if (err) return next({message: err.message});
+                }
+            );
+        },
+        error: function(model, resp) { next(resp); }
+    });    
 };
 
 server.prototype.projectDebug = function(req, res, next) {

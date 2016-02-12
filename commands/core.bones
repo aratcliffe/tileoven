@@ -77,7 +77,7 @@ command.options['updates'] = {
 command.options['profile'] = {
     'title': 'profile=1|0',
     'description': 'Report system profile anonymously.',
-    'default': true
+    'default': false
 };
 
 command.options['concurrency'] = {
