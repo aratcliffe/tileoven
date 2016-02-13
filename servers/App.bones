@@ -102,7 +102,8 @@ server.prototype.projectArchive = function(req, res, next) {
         model = new models.Project({ id: req.param('id') }),
         projectPath = path.resolve(path.join(settings.files, 'project', model.id)),
         archiveName = model.id + '.zip',
-        archive;
+        archive,
+        xml;
     
     model.fetch({
         success: function(model, resp) {
@@ -121,9 +122,14 @@ server.prototype.projectArchive = function(req, res, next) {
                         res.status(500).send({error: err.message});
                     });
 
+                    // Stream output to the response
                     archive.pipe(res);
 
-                    archive.append(model.xml, {name: 'mapnik.xml'});
+                    // Rewrite datasource paths in Mapnik XML to relative paths                    
+                    xml = model.xml.replace(new RegExp('(<Parameter name="file"><!\\[CDATA\\[)(.+/' + model.id + '/layers)(.+\\]\\]></Parameter>)', 'g'), '$1layers$3');
+                    
+                    // Append to archive
+                    archive.append(xml, {name: 'mapnik.xml'});
 
                     return fs.readdir(projectPath, this);
                 },
